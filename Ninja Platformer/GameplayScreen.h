@@ -9,6 +9,7 @@
 #include <Bengine/GLTexture.h>
 #include <memory>
 #include "Box.h"
+#include "Player.h"
 #include <vector>
 
 class GameplayScreen : public Bengine::IGameScreen
@@ -42,6 +43,7 @@ private:
     Bengine::GLTexture m_texture;
     Bengine::Window* m_window;
 
+    Player m_player;
     std::vector<Box> m_boxes;
     std::unique_ptr<b2World> m_world;
 };
