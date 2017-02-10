@@ -42,12 +42,14 @@ private:
     Bengine::SpriteBatch m_spriteBatch;
     std::unique_ptr<Bengine::SpriteFont> m_spriteFont;
     Bengine::GLSLProgram m_textureProgram;
+    Bengine::GLSLProgram m_lightProgram;
     Bengine::Camera2D m_camera;
     Bengine::GLTexture m_texture;
     Bengine::Window* m_window;
     Bengine::DebugRenderer m_debugRenderer;
 
     bool m_renderDebug = false;
+    bool m_lights = false;
 
     Player m_player;
     std::vector<Box> m_boxes;
