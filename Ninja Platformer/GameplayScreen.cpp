@@ -49,7 +49,7 @@ void GameplayScreen::onEntry()
     // Make the ground
     b2BodyDef groundBodyDef;
     // Create ground body definition
-    groundBodyDef.position.Set(0.0f, -25.0f);
+    groundBodyDef.position.Set(0.0f, -26.86f);
     // Create the ground body
     b2Body* groundBody = m_world->CreateBody(&groundBodyDef);
     // Make the ground fixture
@@ -67,7 +67,7 @@ void GameplayScreen::onEntry()
     std::uniform_real_distribution<float> size(1.0f, 2.5f);
     std::uniform_int_distribution<int> colr(0, 255);
 
-    const int NUM_BOXES = 50;
+    const int NUM_BOXES = 15;
 
     for (size_t i = 0; i < NUM_BOXES; i++) {
         Bengine::ColorRGBA8 randColor;
@@ -77,8 +77,7 @@ void GameplayScreen::onEntry()
         randColor.a = 255;
         Box newBox;
 
-        float s = size(randGenerator);
-        newBox.init(m_world.get(), glm::vec2(xPos(randGenerator), yPos(randGenerator)), glm::vec2(s, s), m_texture, randColor);
+        newBox.init(m_world.get(), glm::vec2(xPos(randGenerator), yPos(randGenerator)), glm::vec2(size(randGenerator), size(randGenerator)), m_texture, randColor);
         m_boxes.push_back(newBox);
     }
 
@@ -154,7 +153,7 @@ void GameplayScreen::draw()
         for (auto& box : m_boxes) {
             glm::vec4 destRect(
                 box.getBody()->GetPosition().x - box.getDimensions().x / 2.0f,
-                box.getBody()->GetPosition().y - box.getDimensions().x / 2.0f,
+                box.getBody()->GetPosition().y - box.getDimensions().y / 2.0f,
                 box.getDimensions().x, box.getDimensions().y
             );
 
