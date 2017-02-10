@@ -2,6 +2,7 @@
 #include "BengineErrors.h"
 #include <fstream>
 #include <vector>
+#include "IOManager.h"
 
 namespace Bengine {
 
@@ -17,21 +18,33 @@ GLSLProgram::~GLSLProgram()
 
 void GLSLProgram::compileShaders(const std::string& vertexShaderFilePath, const std::string& fragmentShaderFilePath)
 {
-	// Get a program object
-	_programID = glCreateProgram();
+    std::string vertSource;
+    std::string fragSource;
 
-	_vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
-	if (_vertexShaderID == 0) {
-		fatalError("Vertex shader failed to be created");
-	}
+    IOManager::readFileToBuffer(vertexShaderFilePath, vertSource);
+    IOManager::readFileToBuffer(fragmentShaderFilePath, fragSource);
 
-	_fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
-	if (_fragmentShaderID == 0) {
-		fatalError("Fragment shader failed to be created");
-	}
+    compileShadersFromSource(vertSource.c_str(), fragSource.c_str());
+}
 
-	compileShader(vertexShaderFilePath, _vertexShaderID);
-	compileShader(fragmentShaderFilePath, _fragmentShaderID);
+
+void GLSLProgram::compileShadersFromSource(const char* vertexSource, const char* fragmentSource)
+{
+    // Get a program object
+    _programID = glCreateProgram();
+
+    _vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
+    if (_vertexShaderID == 0) {
+        fatalError("Vertex shader failed to be created");
+    }
+
+    _fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+    if (_fragmentShaderID == 0) {
+        fatalError("Fragment shader failed to be created");
+    }
+
+    compileShader(vertexSource, "Vertex Shader", _vertexShaderID);
+    compileShader(fragmentSource, "Fragment Shader", _fragmentShaderID);
 }
 
 
@@ -40,7 +53,7 @@ void GLSLProgram::linkShaders()
 	// Attach our shaders to our program
 	glAttachShader(_programID, _vertexShaderID);
 	glAttachShader(_programID, _fragmentShaderID);
-
+     
 	// Link our program
 	glLinkProgram(_programID);
 
@@ -79,31 +92,15 @@ void GLSLProgram::addAttribute(const std::string& attributeName)
 }
 
 
-void GLSLProgram::compileShader(const std::string& filePath, GLuint id)
+void GLSLProgram::compileShader(const char* source, const std::string& name, GLuint id)
 {
-	//  Load the shader file
-	std::ifstream vertexFile(filePath);
-	if (vertexFile.fail()) {
-		perror(filePath.c_str());
-		fatalError("Failed to open " + filePath);
-	}
+    // Tell OpenGL that we want to use source as the contents of the shader
+	glShaderSource(id, 1, &source, nullptr);
 
-	std::string fileContents = "";
-	std::string line;
-
-	// Get the contents of the file and put it to a single variable
-	while (std::getline(vertexFile, line)) {
-		fileContents += line + "\n";
-	}
-
-	// Close the file
-	vertexFile.close();
-
-	const char* contentsPtr = fileContents.c_str();
-	glShaderSource(id, 1, &contentsPtr, nullptr);
-
+    // Compile the shader
 	glCompileShader(id);
 
+    // Check for errors
 	GLint success = 0;
 	glGetShaderiv(id, GL_COMPILE_STATUS, &success);
 
@@ -118,7 +115,7 @@ void GLSLProgram::compileShader(const std::string& filePath, GLuint id)
 		glDeleteShader(id);
 
 		std::printf("%s\n", &errorLog[0]);
-		fatalError("Shader " + filePath + " failed to compile");
+		fatalError("Shader " + name + " failed to compile");
 	}
 }
 
@@ -152,6 +149,11 @@ void GLSLProgram::unuse()
 	for (int i = 0; i < _numAttributes; i++) {
 		glDisableVertexAttribArray(i);
 	}
+}
+
+void GLSLProgram::dispose()
+{
+    if (_programID) glDeleteProgram(_programID);
 }
 
 }
