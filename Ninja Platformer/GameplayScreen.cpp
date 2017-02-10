@@ -1,5 +1,6 @@
 #include "GameplayScreen.h"
 #include "SDL/SDL.h"
+#include "Light.h"
 #include <Bengine/IMainGame.h>
 #include <Bengine/ResourceManager.h>
 #include <Bengine/Vertex.h>
@@ -85,11 +86,19 @@ void GameplayScreen::onEntry()
     m_spriteBatch.init();
 
     // Shader init
+    // Compile texture shader
     m_textureProgram.compileShaders("Shaders/textureShading.vert", "Shaders/textureShading.frag");
     m_textureProgram.addAttribute("vertexPosition");
     m_textureProgram.addAttribute("vertexColor");
     m_textureProgram.addAttribute("vertexUV");
     m_textureProgram.linkShaders();
+
+    // Compile light shader
+    m_lightProgram.compileShaders("Shaders/lightShading.vert", "Shaders/lightShading.frag");
+    m_lightProgram.addAttribute("vertexPosition");
+    m_lightProgram.addAttribute("vertexColor");
+    m_lightProgram.addAttribute("vertexUV");
+    m_lightProgram.linkShaders();
 
     // Init camera
     m_camera.init(m_window->getScreenWidth(), m_window->getScreenHeight());
@@ -97,6 +106,8 @@ void GameplayScreen::onEntry()
 
     // Init player
     m_player.init(m_world.get(), glm::vec2(0.0f, 30.0f), glm::vec2(2.0f), glm::vec2(1.0f, 1.8f), Bengine::ColorRGBA8(255, 255, 255, 255));
+
+    
 }
 
 void GameplayScreen::onExit()
@@ -169,6 +180,38 @@ void GameplayScreen::draw()
         m_debugRenderer.end();
         m_debugRenderer.render(projectionMatrix, 2.0f);
     }
+
+    // Render some lights
+    // TODO: DONT HARDCODE THIS!!
+    if (m_lights) {
+        Light playerLight;
+        playerLight.color = Bengine::ColorRGBA8(50, 50, 255, 128);
+        playerLight.position = m_player.getPosition();
+        playerLight.size = 25.0f;
+
+        Light mouseLight;
+        mouseLight.color = Bengine::ColorRGBA8(255, 0, 255, 80);
+        mouseLight.position = m_camera.convertScreenToWorld(m_game->inputManager.getMouseCoords());
+        mouseLight.size = 45.0f;
+
+        m_lightProgram.use();
+        pUniform = m_lightProgram.getUniformLocation("P");
+        glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+        // Additive blending
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+        m_spriteBatch.begin();
+        playerLight.draw(m_spriteBatch);
+        mouseLight.draw(m_spriteBatch);
+        m_spriteBatch.end();
+        m_spriteBatch.renderBatch();
+
+        m_lightProgram.unuse();
+
+        // Reset to regural blending
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
 }
 
 
@@ -181,4 +224,5 @@ void GameplayScreen::checkInput()
     }
 
     if (m_game->inputManager.isKeyPressed(SDLK_LCTRL)) m_renderDebug = !m_renderDebug;
+    if (m_game->inputManager.isKeyPressed(SDLK_LSHIFT)) m_lights = !m_lights;
 }
