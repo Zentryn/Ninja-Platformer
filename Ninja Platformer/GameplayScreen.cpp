@@ -7,7 +7,6 @@
 #include <random>
 #include <ctime>
 
-
 GameplayScreen::GameplayScreen(Bengine::Window* window) :
     m_window(window)
 {
@@ -40,6 +39,8 @@ void GameplayScreen::destroy()
 
 void GameplayScreen::onEntry()
 {
+    m_debugRenderer.init();
+
     // Same gravity as earth
     b2Vec2 gravity(0.0f, -24.0f);
     // Make the world
@@ -101,7 +102,7 @@ void GameplayScreen::onEntry()
 
 void GameplayScreen::onExit()
 {
-    std::cout << "On Exit\n";
+    m_debugRenderer.dispose();
 }
 
 void GameplayScreen::update()
@@ -142,7 +143,48 @@ void GameplayScreen::draw()
 
     m_spriteBatch.end();
     m_spriteBatch.renderBatch();
+
     m_textureProgram.unuse();
+
+    // Debug rendering
+    if (m_renderDebug) {
+        Bengine::ColorRGBA8 color(255, 255, 255, 255);
+
+        // Draw collision boxes for boxes
+        for (auto& box : m_boxes) {
+            glm::vec4 destRect(
+                box.getBody()->GetPosition().x - box.getDimensions().x / 2.0f,
+                box.getBody()->GetPosition().y - box.getDimensions().x / 2.0f,
+                box.getDimensions().x, box.getDimensions().y
+            );
+
+//             m_debugRenderer.drawBox(
+//                 destRect,
+//                 color,
+//                 box.getBody()->GetAngle()
+//             );
+
+            m_debugRenderer.drawCircle(glm::vec2(box.getBody()->GetPosition().x, box.getBody()->GetPosition().y), color, box.getDimensions().x / 2.0f);
+        }
+
+        auto b = m_player.getBox();
+
+        glm::vec4 destRect(
+            b.getBody()->GetPosition().x - b.getDimensions().x / 2.0f,
+            b.getBody()->GetPosition().y - b.getDimensions().y / 2.0f,
+            b.getDimensions().x, b.getDimensions().y
+        );
+
+        // Draw player's collision box
+        m_debugRenderer.drawBox(
+            destRect,
+            color,
+            m_player.getBox().getBody()->GetAngle()
+        );
+        
+        m_debugRenderer.end();
+        m_debugRenderer.render(projectionMatrix, 2.0f);
+    }
 }
 
 
