@@ -42,7 +42,7 @@ void GameplayScreen::onEntry()
     m_debugRenderer.init();
 
     // Same gravity as earth
-    b2Vec2 gravity(0.0f, -24.0f);
+    b2Vec2 gravity(0.0f, -34.0f);
     // Make the world
     m_world = std::make_unique<b2World>(gravity);
 
@@ -61,13 +61,13 @@ void GameplayScreen::onEntry()
     m_texture = Bengine::ResourceManager::getTexture("Assets/bricks_top.png");
 
     // Make a bunch of boxes
-    std::mt19937 randGenerator;
+    std::mt19937 randGenerator((unsigned int)time(nullptr));
     std::uniform_real_distribution<float> xPos(-10.0f, 10.0f);
     std::uniform_real_distribution<float> yPos(-10.0f, 15.0f);
     std::uniform_real_distribution<float> size(1.0f, 2.5f);
     std::uniform_int_distribution<int> colr(0, 255);
 
-    const int NUM_BOXES = 30;
+    const int NUM_BOXES = 50;
 
     for (size_t i = 0; i < NUM_BOXES; i++) {
         Bengine::ColorRGBA8 randColor;
@@ -97,7 +97,7 @@ void GameplayScreen::onEntry()
     m_camera.setScale(32.0f); ///< Scale out because the world is in meters
 
     // Init player
-    m_player.init(m_world.get(), glm::vec2(0.0f, 30.0f), glm::vec2(2.1f, 2.6f), Bengine::ColorRGBA8(255, 255, 255, 255));
+    m_player.init(m_world.get(), glm::vec2(0.0f, 30.0f), glm::vec2(2.0f), glm::vec2(1.0f, 1.8f), Bengine::ColorRGBA8(255, 255, 255, 255));
 }
 
 void GameplayScreen::onExit()
@@ -158,29 +158,14 @@ void GameplayScreen::draw()
                 box.getDimensions().x, box.getDimensions().y
             );
 
-//             m_debugRenderer.drawBox(
-//                 destRect,
-//                 color,
-//                 box.getBody()->GetAngle()
-//             );
-
-            m_debugRenderer.drawCircle(glm::vec2(box.getBody()->GetPosition().x, box.getBody()->GetPosition().y), color, box.getDimensions().x / 2.0f);
+            m_debugRenderer.drawBox(
+                destRect,
+                color,
+                box.getBody()->GetAngle()
+            );
         }
 
-        auto b = m_player.getBox();
-
-        glm::vec4 destRect(
-            b.getBody()->GetPosition().x - b.getDimensions().x / 2.0f,
-            b.getBody()->GetPosition().y - b.getDimensions().y / 2.0f,
-            b.getDimensions().x, b.getDimensions().y
-        );
-
-        // Draw player's collision box
-        m_debugRenderer.drawBox(
-            destRect,
-            color,
-            m_player.getBox().getBody()->GetAngle()
-        );
+        m_player.drawDebug(m_debugRenderer);
         
         m_debugRenderer.end();
         m_debugRenderer.render(projectionMatrix, 2.0f);
@@ -195,4 +180,6 @@ void GameplayScreen::checkInput()
     while (SDL_PollEvent(&evnt)) {
         m_game->onSDLEvent(evnt);
     }
+
+    if (m_game->inputManager.isKeyPressed(SDLK_LCTRL)) m_renderDebug = !m_renderDebug;
 }
