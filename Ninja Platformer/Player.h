@@ -2,9 +2,11 @@
 
 #include "Capsule.h"
 #include <Bengine/SpriteBatch.h>
-#include <Bengine/GLTexture.h>
+#include <Bengine/TileSheet.h>
 #include <Bengine/InputManager.h>   
 #include <Bengine/DebugRenderer.h>
+
+enum class PlayerMoveState {STANDING, RUNNING, PUNCHING, IN_AIR};
 
 class Player
 {
@@ -28,8 +30,13 @@ public:
 
 private:
     glm::vec2 m_drawDims;
-    Bengine::GLTexture m_texture;
+    Bengine::TileSheet m_texture;
     Bengine::ColorRGBA8 m_color;
     Capsule m_capsule;
+    PlayerMoveState m_moveState = PlayerMoveState::STANDING;
+    float m_animationTime = 0.0f;
+    bool m_onGround = false;
+    bool m_isPunching = false;
+    int m_direction = 1; // 1 or -1
 };
 
