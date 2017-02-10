@@ -24,10 +24,10 @@ void Player::update(Bengine::InputManager& inputManager)
 
     b2Body* body = m_collisionBox.getBody();
 
-    if (inputManager.isKeyDown(SDLK_a)) {
+    if (inputManager.isKeyDown(SDLK_a) || inputManager.isKeyDown(SDLK_LEFT)) {
         body->ApplyForceToCenter(b2Vec2(-100.0f, 0.0f), true);
     }
-    else if (inputManager.isKeyDown(SDLK_d)) {
+    else if (inputManager.isKeyDown(SDLK_d) || inputManager.isKeyDown(SDLK_RIGHT)) {
         body->ApplyForceToCenter(b2Vec2(100.0f, 0.0f), true);
     }
     else {
@@ -61,7 +61,7 @@ void Player::update(Bengine::InputManager& inputManager)
 
             if (below) {
                 // We can jump
-                if (inputManager.isKeyPressed(SDLK_w)) {
+                if (inputManager.isKeyPressed(SDLK_w) || inputManager.isKeyPressed(SDLK_SPACE) || inputManager.isKeyPressed(SDLK_UP)) {
                     body->ApplyLinearImpulse(b2Vec2(0.0f, 100.0f), b2Vec2(0.0f, 0.0f), true);
                 }
                 break;
