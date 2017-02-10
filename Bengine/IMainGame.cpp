@@ -30,6 +30,8 @@ void IMainGame::run()
         limiter.begin();
 
         update();
+        if (!m_isRunning) break;
+
         draw();
 
         m_fps = limiter.end();
@@ -153,6 +155,5 @@ void IMainGame::draw()
         m_currentScreen->draw();
     }
 }
-
 
 }
