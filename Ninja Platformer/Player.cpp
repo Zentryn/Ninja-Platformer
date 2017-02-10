@@ -10,25 +10,26 @@ Player::~Player()
 {
 }
 
-void Player::init(b2World* world, const glm::vec2& position, const glm::vec2& dimensions, Bengine::ColorRGBA8 color)
+void Player::init(b2World* world, const glm::vec2& position, const glm::vec2& drawDims, const glm::vec2& collisionDims, Bengine::ColorRGBA8 color)
 {
-    Bengine::GLTexture texture = Bengine::ResourceManager::getTexture("Assets/blue_ninja.png");
-    glm::vec4 uvRect(0.0f, 0.0f, 0.1f, 0.5f);
+    m_texture = Bengine::ResourceManager::getTexture("Assets/blue_ninja.png");
+    m_color = color;
+    m_drawDims = drawDims;
 
-    m_collisionBox.init(world, position, dimensions, texture, color, true, uvRect);
+    m_capsule.init(world, position, collisionDims, 1.0f, 0.3f, true);
 }
 
 void Player::update(Bengine::InputManager& inputManager)
 {
     const float MAX_SPEED = 20.0f;
 
-    b2Body* body = m_collisionBox.getBody();
+    b2Body* body = m_capsule.getBody();
 
     if (inputManager.isKeyDown(SDLK_a) || inputManager.isKeyDown(SDLK_LEFT)) {
-        body->ApplyForceToCenter(b2Vec2(-100.0f, 0.0f), true);
+        body->ApplyForceToCenter(b2Vec2(-325.0f, 0.0f), true);
     }
     else if (inputManager.isKeyDown(SDLK_d) || inputManager.isKeyDown(SDLK_RIGHT)) {
-        body->ApplyForceToCenter(b2Vec2(100.0f, 0.0f), true);
+        body->ApplyForceToCenter(b2Vec2(325.0f, 0.0f), true);
     }
     else {
         // Apply damping
@@ -52,7 +53,7 @@ void Player::update(Bengine::InputManager& inputManager)
             // Check if points are below
             bool below = false;
             for (size_t i = 0; i < b2_maxManifoldPoints; i++) {
-                if (manifold.points[i].y < body->GetPosition().y - m_collisionBox.getDimensions().y / 2.0f + 0.01f) {
+                if (manifold.points[i].y < body->GetPosition().y - m_capsule.getDimensions().y / 2.0f + 0.01f) {
                     // It's touching the player's feet
                     below = true;
                     break;
@@ -62,7 +63,7 @@ void Player::update(Bengine::InputManager& inputManager)
             if (below) {
                 // We can jump
                 if (inputManager.isKeyPressed(SDLK_w) || inputManager.isKeyPressed(SDLK_SPACE) || inputManager.isKeyPressed(SDLK_UP)) {
-                    body->ApplyLinearImpulse(b2Vec2(0.0f, 100.0f), b2Vec2(0.0f, 0.0f), true);
+                    body->ApplyLinearImpulse(b2Vec2(0.0f, 60.0f), b2Vec2(0.0f, 0.0f), true);
                 }
                 break;
             }
@@ -72,5 +73,26 @@ void Player::update(Bengine::InputManager& inputManager)
 
 void Player::draw(Bengine::SpriteBatch& spriteBatch)
 {
-    m_collisionBox.draw(spriteBatch);
+    glm::vec4 destRect(
+        m_capsule.getBody()->GetPosition().x - m_drawDims.x / 2.0f,
+        m_capsule.getBody()->GetPosition().y - m_capsule.getDimensions().y / 2.0f,
+        m_drawDims
+    );
+
+    glm::vec4 uvRect(0.0f, 0.0f, 0.1f, 0.5f);
+
+    spriteBatch.draw(
+        destRect,
+        uvRect,
+        m_texture.id,
+        0.0f,
+        m_color,
+        m_capsule.getBody()->GetAngle()
+    );
+}
+
+
+void Player::drawDebug(Bengine::DebugRenderer& debugRenderer)
+{
+    m_capsule.drawDebug(debugRenderer);
 }
