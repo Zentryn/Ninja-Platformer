@@ -42,6 +42,8 @@ void GameplayScreen::onEntry()
 {
     m_debugRenderer.init();
 
+    releaseKeys();
+
     // Same gravity as earth
     b2Vec2 gravity(0.0f, -34.0f);
     // Make the world
@@ -226,6 +228,18 @@ void GameplayScreen::draw()
     glEnable(GL_BLEND);
 }
 
+void GameplayScreen::releaseKeys()
+{
+    m_game->inputManager.releaseKey(SDLK_LEFT);
+    m_game->inputManager.releaseKey(SDLK_RIGHT);
+    m_game->inputManager.releaseKey(SDLK_UP);
+    m_game->inputManager.releaseKey(SDLK_a);
+    m_game->inputManager.releaseKey(SDLK_w);
+    m_game->inputManager.releaseKey(SDLK_d);
+    m_game->inputManager.releaseKey(SDLK_LSHIFT);
+    m_game->inputManager.releaseKey(SDLK_LCTRL);
+    m_game->inputManager.releaseKey(SDLK_SPACE);
+}
 
 void GameplayScreen::checkInput()
 {

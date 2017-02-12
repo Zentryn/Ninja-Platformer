@@ -37,6 +37,8 @@ public:
 
     virtual void draw() override;
 
+    void releaseKeys();
+
 private:
     void checkInput();
 
