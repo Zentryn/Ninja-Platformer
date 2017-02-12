@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Bengine/GUI.h>
 #include <Box2D/Box2D.h>
 #include <Bengine/IGameScreen.h>
 #include <Bengine/SpriteBatch.h>
@@ -47,6 +48,7 @@ private:
     Bengine::GLTexture m_texture;
     Bengine::Window* m_window;
     Bengine::DebugRenderer m_debugRenderer;
+    Bengine::GUI m_gui;
 
     bool m_renderDebug = false;
     bool m_lights = false;
