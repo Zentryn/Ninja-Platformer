@@ -20,6 +20,11 @@ void Player::init(b2World* world, const glm::vec2& position, const glm::vec2& dr
     m_texture.init(texture, glm::ivec2(10, 2));
 }
 
+void Player::destroy(b2World* world)
+{
+    m_capsule.destroy(world);
+}
+
 void Player::update(Bengine::InputManager& inputManager)
 {
     const float MAX_SPEED = 20.0f;
