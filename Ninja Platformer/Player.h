@@ -22,6 +22,7 @@ public:
         Bengine::ColorRGBA8 color
     );
 
+    void destroy(b2World* world);
     void update(Bengine::InputManager& inputManager);
     void draw(Bengine::SpriteBatch& spriteBatch);
     void drawDebug(Bengine::DebugRenderer& debugRenderer);
