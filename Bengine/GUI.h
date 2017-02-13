@@ -3,6 +3,7 @@
 #include <CEGUI/CEGUI.h>
 #include <string>
 #include <glm/glm.hpp>
+#include <SDL/SDL_events.h>
 #include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
 
 namespace Bengine {
@@ -14,11 +15,28 @@ public:
     void destroy();
 
     void draw();
+    void update();
+
+    void setMouseCursor(const std::string& imageFile);
+    void showMouseCursor();
+    void hideMouseCursor();
+
+    void onSDLEvent(SDL_Event& evnt);
 
     void loadScheme(const std::string& schemeFile);
     void setFont(const std::string& fontFile);
 
+    // Create widget to root
     CEGUI::Window* createWidget(
+        const std::string& type,
+        const glm::vec4& destRectPerc,
+        const glm::vec4& destRectPix,
+        const std::string& name = ""
+    );
+
+    // Create widget to custom parent
+    CEGUI::Window* createWidget(
+        CEGUI::Window* parent,
         const std::string& type,
         const glm::vec4& destRectPerc,
         const glm::vec4& destRectPix,
@@ -34,6 +52,7 @@ private:
     static CEGUI::OpenGL3Renderer* m_renderer;
     CEGUI::GUIContext* m_context = nullptr;
     CEGUI::Window* m_root = nullptr;
+    unsigned int m_lastTime = 0;
 };
 
 }
