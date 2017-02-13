@@ -45,6 +45,11 @@ void Capsule::init(b2World* world,
     m_fixtures[2] = m_body->CreateFixture(&circleDef);
 }
 
+void Capsule::destroy(b2World* world)
+{
+    world->DestroyBody(m_body);
+}
+
 void Capsule::drawDebug(Bengine::DebugRenderer& debugRenderer)
 {
     Bengine::ColorRGBA8 color(255, 255, 255, 255);
