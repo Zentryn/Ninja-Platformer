@@ -127,7 +127,9 @@
     <ClCompile Include="Box.cpp" />
     <ClCompile Include="Capsule.cpp" />
     <ClCompile Include="GameplayScreen.cpp" />
+    <ClCompile Include="LevelEditorScreen.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MainMenuScreen.cpp" />
     <ClCompile Include="Player.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -135,8 +137,11 @@
     <ClInclude Include="Box.h" />
     <ClInclude Include="Capsule.h" />
     <ClInclude Include="GameplayScreen.h" />
+    <ClInclude Include="LevelEditorScreen.h" />
     <ClInclude Include="Light.h" />
+    <ClInclude Include="MainMenuScreen.h" />
     <ClInclude Include="Player.h" />
+    <ClInclude Include="ScreenIndices.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
