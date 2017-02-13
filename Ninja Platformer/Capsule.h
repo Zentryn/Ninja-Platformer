@@ -16,6 +16,8 @@ public:
         bool fixedRotation = false
     );
 
+    void destroy(b2World* world);
+
     void drawDebug(Bengine::DebugRenderer& debugRenderer);
 
     b2Body* getBody() const { return m_body; }
