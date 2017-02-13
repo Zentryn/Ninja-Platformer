@@ -43,6 +43,11 @@ void Box::init(b2World* world,
     m_fixture = m_body->CreateFixture(&fixtureDef);
 }
 
+void Box::destroy(b2World* world)
+{
+    world->DestroyBody(m_body);
+}
+
 void Box::draw(Bengine::SpriteBatch& spriteBatch)
 {
     glm::vec4 destRect(
