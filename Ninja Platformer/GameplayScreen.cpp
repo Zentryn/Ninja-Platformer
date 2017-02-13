@@ -7,10 +7,12 @@
 #include <iostream>
 #include <random>
 #include <ctime>
+#include "ScreenIndices.h"
 
 GameplayScreen::GameplayScreen(Bengine::Window* window) :
     m_window(window)
 {
+    m_screenIndex = SCREEN_INDEX_GAMEPLAY;
 }
 
 
@@ -25,7 +27,7 @@ int GameplayScreen::getNextScreenIndex() const
 
 int GameplayScreen::getPreviousScreenIndex() const
 {
-    return SCREEN_INDEX_NO_SCREEN;
+    return SCREEN_INDEX_MAIN_MENU;
 }
 
 void GameplayScreen::build()
@@ -109,15 +111,8 @@ void GameplayScreen::onEntry()
     // Init player
     m_player.init(m_world.get(), glm::vec2(0.0f, 30.0f), glm::vec2(2.0f), glm::vec2(1.0f, 1.8f), Bengine::ColorRGBA8(255, 255, 255, 255));
 
-    // Init the UI
-    m_gui.init("GUI");
-    m_gui.loadScheme("TaharezLook.scheme");
-    m_gui.loadScheme("AlfiskoSkin.scheme");
-    m_gui.setFont("DejaVuSans-10");
-    
-    // Create a button
-    CEGUI::PushButton* testButton = static_cast<CEGUI::PushButton*>(m_gui.createWidget("AlfiskoSkin/Button", glm::vec4(0.5f, 0.5f, 0.1f, 0.05f), glm::vec4(0.0f), "TestButton"));
-    testButton->setText("Hello World!");
+    // Init UI
+    //initUI();
 }
 
 void GameplayScreen::onExit()
@@ -223,7 +218,7 @@ void GameplayScreen::draw()
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    m_gui.draw();
+    // m_gui.draw();
 
     glEnable(GL_BLEND);
 }
@@ -241,14 +236,48 @@ void GameplayScreen::releaseKeys()
     m_game->inputManager.releaseKey(SDLK_SPACE);
 }
 
+void GameplayScreen::initUI()
+{
+    // Init the UI
+    m_gui.init("GUI");
+    m_gui.loadScheme("TaharezLook.scheme");
+    m_gui.loadScheme("AlfiskoSkin.scheme");
+    m_gui.setFont("DejaVuSans-10");
+
+    // Create a button
+    CEGUI::PushButton* testButton = static_cast<CEGUI::PushButton*>(m_gui.createWidget("TaharezLook/Button", glm::vec4(0.5f, 0.5f, 0.1f, 0.05f), glm::vec4(0.0f), "TestButton"));
+    testButton->setText("Exit Game");
+
+    // Bind event
+    testButton->subscribeEvent(CEGUI::PushButton::EventClicked, CEGUI::Event::Subscriber(&GameplayScreen::onExitClicked, this));
+
+    CEGUI::Combobox* testCombobox = static_cast<CEGUI::Combobox*>(m_gui.createWidget("TaharezLook/Combobox", glm::vec4(0.2f, 0.2f, 0.1f, 0.05f), glm::vec4(0.0f), "TestCombobox"));
+
+    m_gui.setMouseCursor("TaharezLook/MouseArrow");
+    m_gui.showMouseCursor();
+    SDL_ShowCursor(0); ///< Hide regural mouse cursor
+}
+
 void GameplayScreen::checkInput()
 {
     SDL_Event evnt;
 
     while (SDL_PollEvent(&evnt)) {
         m_game->onSDLEvent(evnt);
+        //m_gui.onSDLEvent(evnt);
+
+        switch (evnt.type) {
+        case SDL_QUIT:
+            onExitClicked();
+            break;
+        }
     }
 
     if (m_game->inputManager.isKeyPressed(SDLK_LCTRL)) m_renderDebug = !m_renderDebug;
     if (m_game->inputManager.isKeyPressed(SDLK_LSHIFT)) m_lights = !m_lights;
+}
+
+void GameplayScreen::onExitClicked()
+{
+    m_currentState = Bengine::ScreenState::EXIT_APPLICATION;
 }
