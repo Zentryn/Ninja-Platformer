@@ -115,6 +115,20 @@ glm::vec2 rotatePoint(glm::vec2 pos, float angle)
     return newV;
 }
 
+void DebugRenderer::drawLine(const glm::vec2& a, const glm::vec2& b, const ColorRGBA8& color)
+{
+    int i = m_vertices.size();
+    m_vertices.resize(m_vertices.size() + 2);
+
+    m_vertices[i].position = a;
+    m_vertices[i].color = color;
+    m_vertices[i + 1].position = b;
+    m_vertices[i + 1].color = color;
+
+    m_indices.push_back(i);
+    m_indices.push_back(i + 1);
+}
+
 void DebugRenderer::drawBox(const glm::vec4& destRect, const ColorRGBA8& color, float angle)
 {   
     int i = m_vertices.size();
