@@ -40,7 +40,10 @@ public:
     void releaseKeys();
 
 private:
+    void initUI();
     void checkInput();
+
+    void onExitClicked();
 
     Bengine::SpriteBatch m_spriteBatch;
     std::unique_ptr<Bengine::SpriteFont> m_spriteFont;
