@@ -28,8 +28,6 @@ public:
 
     void draw(Bengine::SpriteBatch& spriteBatch);
 
-    bool isDynamic() const { return m_body->GetType() == b2_dynamicBody; }
-
     // Checks if a point is inside the box
     bool pointInBox(float x, float y) const { return m_fixture->TestPoint(b2Vec2(x, y)); }
 
