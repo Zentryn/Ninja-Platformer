@@ -17,6 +17,8 @@ void Box::init(b2World* world,
                const glm::vec2& dimensions,
                Bengine::GLTexture texture,
                Bengine::ColorRGBA8 color,
+               bool isDynamic,
+               float angle /*= 0.0f*/,
                bool fixedRotation /*= false*/,
                glm::vec4 uvRect /*= glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)*/)
 {
@@ -24,12 +26,21 @@ void Box::init(b2World* world,
     m_dimensions = dimensions;
     m_texture = texture;
     m_uvRect = uvRect;
+    m_isDynamic = isDynamic;
 
     // Make the body
     b2BodyDef bodyDef;
+    if (isDynamic) {
+        bodyDef.type = b2_dynamicBody;
+    }
+    else {
+        bodyDef.type = b2_staticBody;
+    }
+
     bodyDef.type = b2_dynamicBody;
     bodyDef.position.Set(position.x, position.y);
     bodyDef.fixedRotation = fixedRotation;
+    bodyDef.angle = angle;
     m_body = world->CreateBody(&bodyDef);
 
     b2PolygonShape boxShape;
