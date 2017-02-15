@@ -91,7 +91,8 @@ void LevelEditorScreen::update()
     m_uiCamera.update();
     checkInput();
 
-    if (m_selectionMode == SelectionMode::PLACE && m_objectMode == ObjectMode::PLATFORM) {
+    // Box properties change
+    if ((m_selectionMode == SelectionMode::PLACE && m_objectMode == ObjectMode::PLATFORM) || m_selectedBox != NO_BOX) {
         // Size changes
         if (m_inputManager.isKeyDown(SDLK_UP) || m_inputManager.isKeyDown(SDLK_w)) {
             m_heightSpinner->setCurrentValue(m_heightSpinner->getCurrentValue() + SIZE_CHANGE_SPEED);
@@ -119,14 +120,32 @@ void LevelEditorScreen::update()
 
             m_rotationSpinner->setCurrentValue(newValue);
         }
+
+        refreshSelectedBox();
     }
-    else if (m_selectionMode == SelectionMode::PLACE && m_objectMode == ObjectMode::LIGHT) {
+    
+    // Light size scaling
+    if ((m_selectionMode == SelectionMode::PLACE && m_objectMode == ObjectMode::LIGHT) || m_selectedLight != NO_LIGHT) {
         // Size changes
         if (m_inputManager.isKeyDown(SDLK_UP) || m_inputManager.isKeyDown(SDLK_w)) {
             m_sizeSpinner->setCurrentValue(m_sizeSpinner->getCurrentValue() + SIZE_CHANGE_SPEED);
         }
         else if (m_inputManager.isKeyDown(SDLK_DOWN) || m_inputManager.isKeyDown(SDLK_s)) {
             m_sizeSpinner->setCurrentValue(m_sizeSpinner->getCurrentValue() - SIZE_CHANGE_SPEED);
+        }
+
+        refreshSelectedLight();
+    }
+
+    // Delete selected object
+    if (m_inputManager.isKeyPressed(SDLK_DELETE)) {
+        if (m_selectedLight != NO_LIGHT) {
+            m_lights.erase(m_lights.begin() + m_selectedLight);
+            m_selectedLight = NO_LIGHT;
+        }
+        else if (m_selectedBox != NO_BOX) {
+            m_boxes.erase(m_boxes.begin() + m_selectedBox);
+            m_selectedBox = NO_BOX;
         }
     }
 
@@ -445,7 +464,8 @@ void LevelEditorScreen::drawWorld()
 
         for (auto& box : m_boxes) {
             Bengine::ColorRGBA8 color;
-            if (box.isDynamic()) {
+
+            if (box.getIsDynamic()) {
                 color = Bengine::ColorRGBA8(0, 255, 0, 255);
             }
             else {
@@ -485,11 +505,13 @@ void LevelEditorScreen::drawUI()
 
         glm::vec2 pos = m_camera.convertScreenToWorld(glm::vec2(x, y));
 
+        // Draw the current box's boundaries
         if (m_objectMode == ObjectMode::PLATFORM) {
             m_debugRenderer.drawBox(glm::vec4(pos.x - m_width / 2.0f, pos.y - m_height / 2.0f, m_width, m_height), Bengine::ColorRGBA8(255, 255, 255, 255), m_rotation);
             m_debugRenderer.end();
             m_debugRenderer.render(m_camera.getCameraMatrix(), 2.0f);
         }
+        // Draw the light's boundaries
         else if (m_objectMode == ObjectMode::LIGHT) {
             Light tempLight;
             tempLight.position = pos;
@@ -519,6 +541,30 @@ void LevelEditorScreen::drawUI()
             // Outer circle
             m_debugRenderer.drawCircle(pos, tempLight.color, tempLight.size);
 
+            m_debugRenderer.end();
+            m_debugRenderer.render(m_camera.getCameraMatrix(), 2.0f);
+        }
+    }
+    // Draw the selected object's debug lines
+    else {
+        // Draw selected box
+        if (m_selectedBox != NO_BOX) {
+            const Box& b = m_boxes[m_selectedBox];
+
+            glm::vec4 destRect(b.getPosition().x - b.getDimensions().x / 2.0f, b.getPosition().y - b.getDimensions().y / 2.0f, b.getDimensions());
+            m_debugRenderer.drawBox(destRect, Bengine::ColorRGBA8(255, 255, 0, 255), b.getAngle());
+            m_debugRenderer.end();
+            m_debugRenderer.render(m_camera.getCameraMatrix(), 2.0f);
+        }
+        // Draw selected light
+        if (m_selectedLight != NO_LIGHT) {
+            const Light& l = m_lights[m_selectedLight];
+
+            // Outer circle
+            m_debugRenderer.drawCircle(l.position, Bengine::ColorRGBA8(255, 255, 0, 255), l.size);
+
+            // Selection radius
+            m_debugRenderer.drawCircle(l.position, l.color, LIGHT_SELECT_RADIUS);
             m_debugRenderer.end();
             m_debugRenderer.render(m_camera.getCameraMatrix(), 2.0f);
         }
@@ -651,6 +697,7 @@ void LevelEditorScreen::updateMouseDown(SDL_Event& evnt)
         m_mouseButtons[MOUSE_LEFT] = true;
         if (isMouseInUI()) return;
 
+        // Place mode
         if (m_selectionMode == SelectionMode::PLACE) {
             switch (m_objectMode) {
             case ObjectMode::PLAYER:
@@ -665,6 +712,7 @@ void LevelEditorScreen::updateMouseDown(SDL_Event& evnt)
                     glm::vec4 uvRect(pos.x, pos.x, m_width, m_height);
                     box.init(m_world.get(), pos, glm::vec2(m_width, m_height), texture, color, m_physicsMode == PhysicsMode::DYNAMIC, m_rotation, false, uvRect);
                     m_boxes.push_back(box);
+                    std::cout << "Is dynamic: " << (m_physicsMode == PhysicsMode::DYNAMIC) << "\n";
                 }
                 break;
             case ObjectMode::LIGHT:
@@ -677,6 +725,79 @@ void LevelEditorScreen::updateMouseDown(SDL_Event& evnt)
             case ObjectMode::FINISH:
                 // TODO: Implement this
                 break;
+            }
+        }
+        // Select mode
+        else {
+            pos = m_camera.convertScreenToWorld(glm::vec2(evnt.button.x, evnt.button.y));
+
+            m_selectedLight = NO_LIGHT;
+
+            // Check for lights
+            for (size_t i = 0; i < m_lights.size(); i++) {
+                if (inLightSelect(m_lights[i], pos)) {
+                    m_selectedLight = i;
+                    break;
+                }
+            }
+
+            // If a light was seleccted
+            if (m_selectedLight != NO_LIGHT) {
+                onLightMouseClick();
+                m_selectOffset = pos - m_lights[m_selectedLight].position;
+                m_selectedBox = NO_BOX;
+                m_isDragging = true;
+
+                // Set variables to the selected light's variables
+                m_rSlider->setCurrentValue(m_lights[m_selectedLight].color.r);
+                m_gSlider->setCurrentValue(m_lights[m_selectedLight].color.g);
+                m_bSlider->setCurrentValue(m_lights[m_selectedLight].color.b);
+                m_aSlider->setCurrentValue(m_lights[m_selectedLight].color.a);
+
+                m_sizeSpinner->setCurrentValue(m_lights[m_selectedLight].size);
+                m_lightRadioButton->setSelected(true);
+
+                m_objectMode = ObjectMode::LIGHT;
+
+                break; ///< If we selected a light, don't check for boxes
+            }
+
+            m_selectedBox = NO_BOX;
+
+            // Check for boxes
+            for (size_t i = 0; i < m_boxes.size(); i++) {
+                if (m_boxes[i].pointInBox(pos.x, pos.y)) {
+                    m_selectedBox = i;
+                    break;
+                }
+            }
+
+            // If a box was selected
+            if (m_selectedBox != NO_BOX) {
+                onPlatformMouseClick();
+                m_selectOffset = pos - m_boxes[m_selectedBox].getPosition();
+                m_isDragging = true;
+
+                // Set variables to the selected box's variables
+                m_rSlider->setCurrentValue(m_boxes[m_selectedBox].getColor().r);
+                m_gSlider->setCurrentValue(m_boxes[m_selectedBox].getColor().g);
+                m_bSlider->setCurrentValue(m_boxes[m_selectedBox].getColor().b);
+
+                m_widthSpinner->setCurrentValue(m_boxes[m_selectedBox].getDimensions().x);
+                m_heightSpinner->setCurrentValue(m_boxes[m_selectedBox].getDimensions().y);
+                m_rotationSpinner->setCurrentValue(m_boxes[m_selectedBox].getAngle());
+
+                if (m_boxes[m_selectedBox].getIsDynamic()) {
+                    m_dynamicRadioButton->setSelected(true);
+                    m_physicsMode = PhysicsMode::DYNAMIC;
+                }
+                else {
+                    m_rigidRadioButton->setSelected(true);
+                    m_physicsMode = PhysicsMode::RIGID;
+                }
+
+                m_platformRadioButton->setSelected(true);
+                m_objectMode = ObjectMode::PLATFORM;
             }
         }
 
@@ -692,6 +813,7 @@ void LevelEditorScreen::updateMouseUp(SDL_Event& evnt)
     switch (evnt.button.button) {
     case SDL_BUTTON_LEFT:
         m_mouseButtons[MOUSE_LEFT] = false;
+        m_isDragging = false;
         break;
     case SDL_BUTTON_RIGHT:
         m_mouseButtons[MOUSE_RIGHT] = false;
@@ -705,6 +827,54 @@ void LevelEditorScreen::updateMouseMotion(SDL_Event& evnt)
         m_hasDragged = true;
         m_camera.offsetPosition(glm::vec2(-evnt.motion.xrel, evnt.motion.yrel * m_camera.getAspectRatio()) * m_dragSpeed);
     }
+    else if (m_isDragging && m_mouseButtons[MOUSE_LEFT]) {
+        // Drag selected box
+        if (m_selectedBox != NO_BOX) {
+            glm::vec2 pos = m_camera.convertScreenToWorld(glm::vec2(evnt.motion.x, evnt.motion.y)) - m_selectOffset;
+            refreshSelectedBox(pos);
+        }
+        // Drag selectedLight
+        else if (m_selectedLight != NO_LIGHT) {
+            glm::vec2 pos = m_camera.convertScreenToWorld(glm::vec2(evnt.motion.x, evnt.motion.y)) - m_selectOffset;
+            refreshSelectedLight(pos);
+        }
+    }
+}
+
+void LevelEditorScreen::refreshSelectedBox()
+{
+    if (m_selectedBox == NO_BOX) return;
+    refreshSelectedBox(m_boxes[m_selectedBox].getPosition());
+}
+
+void LevelEditorScreen::refreshSelectedBox(const glm::vec2& pos)
+{
+    Box newBox;
+    static Bengine::GLTexture texture = Bengine::ResourceManager::getTexture("Assets/bricks_top.png");
+    Bengine::ColorRGBA8 color((GLubyte)m_colorPickerRed, (GLubyte)m_colorPickerGreen, (GLubyte)m_colorPickerBlue, 255);
+    glm::vec4 uvRect(pos.x, pos.y, m_width, m_height);
+
+    newBox.init(m_world.get(), pos, glm::vec2(m_width, m_height), texture, color, m_physicsMode == PhysicsMode::DYNAMIC, m_rotation, false, uvRect);
+
+    // Destroy the old box and replace it with the new one
+    m_boxes[m_selectedBox].destroy(m_world.get());
+    m_boxes[m_selectedBox] = newBox;
+}
+
+void LevelEditorScreen::refreshSelectedLight()
+{
+    if (m_selectedLight == NO_LIGHT) return;
+    refreshSelectedLight(m_lights[m_selectedLight].position);
+}
+
+void LevelEditorScreen::refreshSelectedLight(const glm::vec2& pos)
+{
+    Light newLight;
+    newLight.position = pos;
+    newLight.size = m_lightSize;
+    newLight.color = Bengine::ColorRGBA8((GLubyte)m_colorPickerRed, (GLubyte)m_colorPickerGreen, (GLubyte)m_colorPickerBlue, (GLubyte)m_colorPickerAlpha);
+
+    m_lights[m_selectedLight] = newLight;
 }
 
 bool LevelEditorScreen::isMouseInUI()
@@ -716,6 +886,11 @@ bool LevelEditorScreen::isMouseInUI()
 
     return (x >= m_groupBox->getXPosition().d_scale * SW && x <= m_groupBox->getXPosition().d_scale * SW + m_groupBox->getWidth().d_scale  * SW &&
             y >= m_groupBox->getYPosition().d_scale * SH && y <= m_groupBox->getYPosition().d_scale * SH + m_groupBox->getHeight().d_scale * SH);
+}
+
+bool LevelEditorScreen::inLightSelect(Light light, glm::vec2 pos)
+{
+    return (glm::length(pos - light.position) <= LIGHT_SELECT_RADIUS);
 }
 
 void LevelEditorScreen::onColorPickerRedChange()
@@ -779,6 +954,8 @@ void LevelEditorScreen::onSelectMouseClick()
 
 void LevelEditorScreen::onPlaceMouseClick()
 {
+    m_selectedBox = NO_BOX;
+    m_selectedLight = NO_LIGHT;
     m_selectionMode = SelectionMode::PLACE;
 }
 

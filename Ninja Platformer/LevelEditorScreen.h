@@ -34,6 +34,9 @@ enum class SelectionMode {
     PLACE
 };
 
+const int NO_BOX = -1;
+const int NO_LIGHT = -1;
+
 // A label for a CEGUI widget.
 class WidgetLabel {
 public:
@@ -84,7 +87,13 @@ private:
     void updateMouseUp(SDL_Event& evnt);
     void updateMouseMotion(SDL_Event& evnt);
 
+    void refreshSelectedBox();
+    void refreshSelectedBox(const glm::vec2& pos);
+    void refreshSelectedLight();
+    void refreshSelectedLight(const glm::vec2& pos);
+
     bool isMouseInUI(); ///< Checks if the mouse in inside the UI box
+    bool inLightSelect(Light light, glm::vec2 pos); ///< Checks if a point is inside the light's select radius
 
     /******************************************/
     /* Event handlers                         */
@@ -156,7 +165,11 @@ private:
     bool m_mouseButtons[2];
     bool m_hasPlayer = false;
     float m_dragSpeed = 0.025f;
+    bool m_isDragging = false;
+    glm::vec2 m_selectOffset;
     bool m_hasDragged = false;
+    int m_selectedBox = NO_BOX;
+    int m_selectedLight = NO_LIGHT;
     
     std::unique_ptr<b2World> m_world;
     std::vector<Light> m_lights;
