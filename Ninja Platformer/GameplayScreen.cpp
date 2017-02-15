@@ -82,7 +82,7 @@ void GameplayScreen::onEntry()
         randColor.a = 255;
         Box newBox;
 
-        newBox.init(m_world.get(), glm::vec2(xPos(randGenerator), yPos(randGenerator)), glm::vec2(size(randGenerator), size(randGenerator)), m_texture, randColor);
+        newBox.init(m_world.get(), glm::vec2(xPos(randGenerator), yPos(randGenerator)), glm::vec2(size(randGenerator), size(randGenerator)), m_texture, randColor, true);
         m_boxes.push_back(newBox);
     }
 
