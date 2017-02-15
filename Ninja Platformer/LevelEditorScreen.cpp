@@ -3,6 +3,10 @@
 
 const int MOUSE_LEFT = 0;
 const int MOUSE_RIGHT = 1;
+const float ROTATION_SPEED = 0.01f;
+const float SIZE_CHANGE_SPEED = 0.05f;
+const float LIGHT_SELECT_RADIUS = 0.5f;
+const b2Vec2 GRAVITY(0.0f, -25.0f);
 
 LevelEditorScreen::LevelEditorScreen(Bengine::Window* window) :
     m_window(window)
@@ -51,10 +55,13 @@ void LevelEditorScreen::onEntry()
     m_mouseButtons[MOUSE_LEFT] = false;
     m_mouseButtons[MOUSE_RIGHT] = false;
 
-    m_debugRenderer.init();
-
-    // Init camera
+    // Init cameras
     m_camera.init(m_window->getScreenWidth(), m_window->getScreenHeight());
+    m_camera.setScale(32.0f);
+
+    m_uiCamera.init(m_window->getScreenWidth(), m_window->getScreenHeight());
+
+    m_debugRenderer.init();
 
     // Init UI
     initUI();
@@ -62,11 +69,12 @@ void LevelEditorScreen::onEntry()
     // Init sprite batch
     m_spriteBatch.init();
 
+    m_world = std::make_unique<b2World>(GRAVITY);
+
     // Init shaders
     initShaders();
 
     m_blankTexture = Bengine::ResourceManager::getTexture("Assets/blank.png");
-
     m_spriteFont = std::make_unique<Bengine::SpriteFont>("Fonts/chintzy.ttf", 32);
 }
 
@@ -80,7 +88,48 @@ void LevelEditorScreen::onExit()
 void LevelEditorScreen::update()
 {
     m_camera.update();
+    m_uiCamera.update();
     checkInput();
+
+    if (m_selectionMode == SelectionMode::PLACE && m_objectMode == ObjectMode::PLATFORM) {
+        // Size changes
+        if (m_inputManager.isKeyDown(SDLK_UP) || m_inputManager.isKeyDown(SDLK_w)) {
+            m_heightSpinner->setCurrentValue(m_heightSpinner->getCurrentValue() + SIZE_CHANGE_SPEED);
+        }
+        else if (m_inputManager.isKeyDown(SDLK_DOWN) || m_inputManager.isKeyDown(SDLK_s)) {
+            m_heightSpinner->setCurrentValue(m_heightSpinner->getCurrentValue() - SIZE_CHANGE_SPEED);
+        }
+        if (m_inputManager.isKeyDown(SDLK_LEFT) || m_inputManager.isKeyDown(SDLK_a)) {
+            m_widthSpinner->setCurrentValue(m_widthSpinner->getCurrentValue() - SIZE_CHANGE_SPEED);
+        }
+        else if (m_inputManager.isKeyDown(SDLK_RIGHT) || m_inputManager.isKeyDown(SDLK_d)) {
+            m_widthSpinner->setCurrentValue(m_widthSpinner->getCurrentValue() + SIZE_CHANGE_SPEED);
+        }
+
+        // Rotation change
+        if (m_inputManager.isKeyDown(SDLK_e)) {
+            double newValue = m_rotationSpinner->getCurrentValue() - ROTATION_SPEED;
+            if (newValue < 0.0) newValue += M_PI * 2.0;
+
+            m_rotationSpinner->setCurrentValue(newValue);
+        }
+        else if (m_inputManager.isKeyDown(SDLK_q)) {
+            double newValue = m_rotationSpinner->getCurrentValue() + ROTATION_SPEED;
+            if (newValue > M_PI * 2.0) newValue -= M_PI * 2.0;
+
+            m_rotationSpinner->setCurrentValue(newValue);
+        }
+    }
+    else if (m_selectionMode == SelectionMode::PLACE && m_objectMode == ObjectMode::LIGHT) {
+        // Size changes
+        if (m_inputManager.isKeyDown(SDLK_UP) || m_inputManager.isKeyDown(SDLK_w)) {
+            m_sizeSpinner->setCurrentValue(m_sizeSpinner->getCurrentValue() + SIZE_CHANGE_SPEED);
+        }
+        else if (m_inputManager.isKeyDown(SDLK_DOWN) || m_inputManager.isKeyDown(SDLK_s)) {
+            m_sizeSpinner->setCurrentValue(m_sizeSpinner->getCurrentValue() - SIZE_CHANGE_SPEED);
+        }
+    }
+
     m_gui.update();
 }
 
@@ -91,6 +140,12 @@ void LevelEditorScreen::initShaders()
     m_textureProgram.addAttribute("vertexColor");
     m_textureProgram.addAttribute("vertexUV");
     m_textureProgram.linkShaders();
+
+    m_lightProgram.compileShaders("Shaders/lightShading.vert", "Shaders/lightShading.frag");
+    m_lightProgram.addAttribute("vertexPosition");
+    m_lightProgram.addAttribute("vertexColor");
+    m_lightProgram.addAttribute("vertexUV");
+    m_lightProgram.linkShaders();
 }
 
 void LevelEditorScreen::initUI()
@@ -331,10 +386,14 @@ void LevelEditorScreen::draw()
 
     drawWorld();
     drawUI();
+
+    glEnable(GL_BLEND); ///< Need to re-enable this so alpha bleding works. Box2D fucks it up!!
 }
 
 void LevelEditorScreen::drawWorld()
 {
+    m_textureProgram.use();
+
     // Upload texture uniform
     GLint textureUniform = m_textureProgram.getUniformLocation("mySampler");
     glUniform1i(textureUniform, 0);
@@ -358,23 +417,59 @@ void LevelEditorScreen::drawWorld()
         m_textureProgram.unuse();
     }
 
+    { // Draw lights
+        m_lightProgram.use();
+
+        pUniform = m_lightProgram.getUniformLocation("P");
+        glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+        // Additive blending
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+        m_spriteBatch.begin();
+
+        for (auto& l : m_lights) l.draw(m_spriteBatch);
+
+        m_spriteBatch.end();
+        m_spriteBatch.renderBatch();
+
+        m_lightProgram.unuse();
+
+        // Restore alpha blending
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
     // Debug rendering
     if (m_debugRender) {
         if (m_hasPlayer) m_player.drawDebug(m_debugRenderer);
 
         for (auto& box : m_boxes) {
-            // TODO: Implement this
+            Bengine::ColorRGBA8 color;
+            if (box.isDynamic()) {
+                color = Bengine::ColorRGBA8(0, 255, 0, 255);
+            }
+            else {
+                color = Bengine::ColorRGBA8(255, 0, 0, 255);
+            }
+
+            glm::vec4 destRect(box.getPosition().x - box.getDimensions().x / 2.0f, box.getPosition().y - box.getDimensions().y / 2.0f, box.getDimensions());
+
+            m_debugRenderer.drawBox(destRect, color, box.getBody()->GetAngle());
+        }
+
+        for (auto& l : m_lights) {
+            m_debugRenderer.drawCircle(l.position, Bengine::ColorRGBA8(255, 0, 255, 255), LIGHT_SELECT_RADIUS);
         }
 
         // Draw debug lines going through origin
         // +X axis
         m_debugRenderer.drawLine(glm::vec2(0.0f), glm::vec2(100000.0f, 0.0f), Bengine::ColorRGBA8(255, 0, 0, 200));
         // -X axis
-        m_debugRenderer.drawLine(glm::vec2(0.0f), glm::vec2(-100000.0f, 0.0f), Bengine::ColorRGBA8(200, 0, 0, 50));
+        m_debugRenderer.drawLine(glm::vec2(0.0f), glm::vec2(-100000.0f, 0.0f), Bengine::ColorRGBA8(200, 0, 0, 100));
         // +Y axis
         m_debugRenderer.drawLine(glm::vec2(0.0f), glm::vec2(0.0f, 100000.0f), Bengine::ColorRGBA8(0, 255, 0, 200));
         // -Y axis
-        m_debugRenderer.drawLine(glm::vec2(0.0f), glm::vec2(0.0f, -100000.0f), Bengine::ColorRGBA8(0, 200, 0, 50));
+        m_debugRenderer.drawLine(glm::vec2(0.0f), glm::vec2(0.0f, -100000.0f), Bengine::ColorRGBA8(0, 200, 0, 100));
         
         m_debugRenderer.end();
         m_debugRenderer.render(m_camera.getCameraMatrix(), 2.0f);
@@ -383,6 +478,52 @@ void LevelEditorScreen::drawWorld()
 
 void LevelEditorScreen::drawUI()
 {
+    // Outlines
+    if (m_selectionMode == SelectionMode::PLACE && !isMouseInUI()) {
+        int x, y;
+        SDL_GetMouseState(&x, &y);
+
+        glm::vec2 pos = m_camera.convertScreenToWorld(glm::vec2(x, y));
+
+        if (m_objectMode == ObjectMode::PLATFORM) {
+            m_debugRenderer.drawBox(glm::vec4(pos.x - m_width / 2.0f, pos.y - m_height / 2.0f, m_width, m_height), Bengine::ColorRGBA8(255, 255, 255, 255), m_rotation);
+            m_debugRenderer.end();
+            m_debugRenderer.render(m_camera.getCameraMatrix(), 2.0f);
+        }
+        else if (m_objectMode == ObjectMode::LIGHT) {
+            Light tempLight;
+            tempLight.position = pos;
+            tempLight.color = Bengine::ColorRGBA8((GLubyte)m_colorPickerRed, (GLubyte)m_colorPickerGreen, (GLubyte)m_colorPickerBlue, (GLubyte)m_colorPickerAlpha);
+            tempLight.size = m_lightSize;
+
+            // Draw light
+            m_lightProgram.use();
+            GLint pUniform = m_textureProgram.getUniformLocation("P");
+            glUniformMatrix4fv(pUniform, 1, GL_FALSE, &m_camera.getCameraMatrix()[0][0]);
+
+            // Additive blending
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+            m_spriteBatch.begin();
+            tempLight.draw(m_spriteBatch);
+            m_spriteBatch.end();
+            m_spriteBatch.renderBatch();
+            m_lightProgram.unuse();
+
+            // Restore alpha blending
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+            // Selection radius
+            m_debugRenderer.drawCircle(pos, Bengine::ColorRGBA8(255, 255, 255, 255), LIGHT_SELECT_RADIUS);
+
+            // Outer circle
+            m_debugRenderer.drawCircle(pos, tempLight.color, tempLight.size);
+
+            m_debugRenderer.end();
+            m_debugRenderer.render(m_camera.getCameraMatrix(), 2.0f);
+        }
+    }
+
     m_textureProgram.use();
 
     // Upload texture uniform
@@ -391,7 +532,7 @@ void LevelEditorScreen::drawUI()
     glActiveTexture(GL_TEXTURE0);
 
     // Camera matrix
-    glm::mat4 projectionMatrix = m_camera.getCameraMatrix();
+    glm::mat4 projectionMatrix = m_uiCamera.getCameraMatrix();
     GLint pUniform = m_textureProgram.getUniformLocation("P");
     glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
 
@@ -434,12 +575,42 @@ void LevelEditorScreen::checkInput()
 {
     SDL_Event evnt;
 
+    m_inputManager.update();
+
     while (SDL_PollEvent(&evnt)) {
         m_gui.onSDLEvent(evnt);
 
         switch (evnt.type) {
         case SDL_QUIT:
             onExitClicked();
+            break;
+        case SDL_MOUSEBUTTONDOWN:
+            updateMouseDown(evnt);
+            break;
+        case SDL_MOUSEBUTTONUP:
+            updateMouseUp(evnt);
+            break;
+        case SDL_MOUSEMOTION:
+            updateMouseMotion(evnt);
+            break;
+        case SDL_MOUSEWHEEL:
+            if (m_hasDragged) {
+                m_camera.offsetScale(m_camera.getScale() * (float)evnt.wheel.y * 0.05f);
+
+                if (m_camera.getScale() > 5000.0f) {
+                    m_camera.setScale(5000.0f);
+                }
+                else {
+                    if (evnt.wheel.y < 0 && m_camera.getScale() > 0.001f) m_dragSpeed *= 1.03f;
+                    else m_dragSpeed *= 0.97f;
+                }
+            }
+            break;
+        case SDL_KEYDOWN:
+            m_inputManager.pressKey(evnt.key.keysym.sym);
+            break;
+        case SDL_KEYUP:
+            m_inputManager.releaseKey(evnt.key.keysym.sym);
             break;
         }
     }
@@ -464,6 +635,87 @@ void LevelEditorScreen::setLightWidgetVisibility(bool visibility)
 {
     m_aSlider->setVisible(visibility);
     m_sizeSpinner->setVisible(visibility);
+}
+
+void LevelEditorScreen::updateMouseDown(SDL_Event& evnt)
+{
+    const Bengine::GLTexture texture = Bengine::ResourceManager::getTexture("Assets/bricks_top.png");
+    Bengine::ColorRGBA8 color((GLubyte)m_colorPickerRed, (GLubyte)m_colorPickerGreen, (GLubyte)m_colorPickerBlue, 255);
+
+    glm::vec2 pos;
+    Box box;
+    Light light;
+
+    switch (evnt.button.button) {
+    case SDL_BUTTON_LEFT:
+        m_mouseButtons[MOUSE_LEFT] = true;
+        if (isMouseInUI()) return;
+
+        if (m_selectionMode == SelectionMode::PLACE) {
+            switch (m_objectMode) {
+            case ObjectMode::PLAYER:
+                if (m_hasPlayer) m_player.destroy(m_world.get());
+                pos = m_camera.convertScreenToWorld(glm::vec2(evnt.button.x, evnt.button.y));
+                m_player.init(m_world.get(), pos, glm::vec2(2.0f), glm::vec2(1.0f, 1.8f), color);
+                m_hasPlayer = true;
+                break;
+            case ObjectMode::PLATFORM:
+                if (m_width > 0.0f && m_height > 0.0f) {
+                    pos = m_camera.convertScreenToWorld(glm::vec2(evnt.button.x, evnt.button.y));
+                    glm::vec4 uvRect(pos.x, pos.x, m_width, m_height);
+                    box.init(m_world.get(), pos, glm::vec2(m_width, m_height), texture, color, m_physicsMode == PhysicsMode::DYNAMIC, m_rotation, false, uvRect);
+                    m_boxes.push_back(box);
+                }
+                break;
+            case ObjectMode::LIGHT:
+                light.position = m_camera.convertScreenToWorld(glm::vec2(evnt.button.x, evnt.button.y));
+                light.size = m_lightSize;
+                color.a = (GLubyte)m_colorPickerAlpha;
+                light.color = color;
+                m_lights.push_back(light);
+                break;
+            case ObjectMode::FINISH:
+                // TODO: Implement this
+                break;
+            }
+        }
+
+        break;
+    case SDL_BUTTON_RIGHT:
+        m_mouseButtons[MOUSE_RIGHT] = true;
+        break;
+    }
+}
+
+void LevelEditorScreen::updateMouseUp(SDL_Event& evnt)
+{
+    switch (evnt.button.button) {
+    case SDL_BUTTON_LEFT:
+        m_mouseButtons[MOUSE_LEFT] = false;
+        break;
+    case SDL_BUTTON_RIGHT:
+        m_mouseButtons[MOUSE_RIGHT] = false;
+        break;
+    }
+}
+
+void LevelEditorScreen::updateMouseMotion(SDL_Event& evnt)
+{
+    if (m_mouseButtons[MOUSE_RIGHT]) {
+        m_hasDragged = true;
+        m_camera.offsetPosition(glm::vec2(-evnt.motion.xrel, evnt.motion.yrel * m_camera.getAspectRatio()) * m_dragSpeed);
+    }
+}
+
+bool LevelEditorScreen::isMouseInUI()
+{
+    int x, y;
+    SDL_GetMouseState(&x, &y);
+    const float SW = (float)m_window->getScreenWidth();
+    const float SH = (float)m_window->getScreenHeight();
+
+    return (x >= m_groupBox->getXPosition().d_scale * SW && x <= m_groupBox->getXPosition().d_scale * SW + m_groupBox->getWidth().d_scale  * SW &&
+            y >= m_groupBox->getYPosition().d_scale * SH && y <= m_groupBox->getYPosition().d_scale * SH + m_groupBox->getHeight().d_scale * SH);
 }
 
 void LevelEditorScreen::onColorPickerRedChange()
@@ -493,50 +745,56 @@ void LevelEditorScreen::onSizeValueChange()
 
 void LevelEditorScreen::onPlayerMouseClick()
 {
+    m_objectMode = ObjectMode::PLAYER;
     setLightWidgetVisibility(false);
     setObjectWidgetVisibility(false);
 }
 
 void LevelEditorScreen::onPlatformMouseClick()
 {
+    m_objectMode = ObjectMode::PLATFORM;
     setLightWidgetVisibility(false);
     setObjectWidgetVisibility(true);
 }
 
 void LevelEditorScreen::onLightMouseClick()
 {
+    m_objectMode = ObjectMode::LIGHT;
     setLightWidgetVisibility(true);
     setObjectWidgetVisibility(false);
 }
 
 void LevelEditorScreen::onFinishMouseClick()
 {
-
+    m_objectMode = ObjectMode::FINISH;
+    setLightWidgetVisibility(false);
+    setObjectWidgetVisibility(false);
+    // TODO: Implement this
 }
 
 void LevelEditorScreen::onSelectMouseClick()
 {
-
+    m_selectionMode = SelectionMode::SELECT;
 }
 
 void LevelEditorScreen::onPlaceMouseClick()
 {
-
+    m_selectionMode = SelectionMode::PLACE;
 }
 
 void LevelEditorScreen::onRotationValueChange()
 {
-
+    m_rotation = (float)m_rotationSpinner->getCurrentValue();
 }
 
 void LevelEditorScreen::onWidthValueChange()
 {
-
+    m_width = (float)m_widthSpinner->getCurrentValue();
 }
 
 void LevelEditorScreen::onHeightValueChange()
 {
-
+    m_height = (float)m_heightSpinner->getCurrentValue();
 }
 
 void LevelEditorScreen::onDebugToggleClick()

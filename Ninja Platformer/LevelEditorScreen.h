@@ -80,6 +80,12 @@ private:
     void setSelectionModeWidgetVisibility(bool visibility);
     void setLightWidgetVisibility(bool visibility);
 
+    void updateMouseDown(SDL_Event& evnt);
+    void updateMouseUp(SDL_Event& evnt);
+    void updateMouseMotion(SDL_Event& evnt);
+
+    bool isMouseInUI(); ///< Checks if the mouse in inside the UI box
+
     /******************************************/
     /* Event handlers                         */
     /******************************************/
@@ -142,18 +148,24 @@ private:
     CEGUI::PushButton* m_backButton = nullptr;
 
     float m_rotation = 0.0f;
+    float m_width = 0.0f;
+    float m_height = 0.0f;
     bool m_debugRender = false;
     float m_lightSize = 0.0f;
 
     bool m_mouseButtons[2];
     bool m_hasPlayer = false;
+    float m_dragSpeed = 0.025f;
+    bool m_hasDragged = false;
     
+    std::unique_ptr<b2World> m_world;
     std::vector<Light> m_lights;
     std::vector<Box> m_boxes;
 
     Player m_player;
 
     Bengine::Camera2D m_camera;
+    Bengine::Camera2D m_uiCamera;
     Bengine::Window* m_window;
     Bengine::GUI m_gui;
 
@@ -166,6 +178,7 @@ private:
     std::vector<WidgetLabel> m_widgetLabels;
 
     Bengine::SpriteBatch m_spriteBatch;
+    Bengine::InputManager m_inputManager;
     Bengine::GLSLProgram m_textureProgram;
     Bengine::GLSLProgram m_lightProgram;
     Bengine::DebugRenderer m_debugRenderer;
