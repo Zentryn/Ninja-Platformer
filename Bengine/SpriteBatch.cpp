@@ -130,12 +130,24 @@ void SpriteBatch::draw(const glm::vec4& destRect, const glm::vec4& uvRect, GLuin
     _glyphs.emplace_back(destRect, uvRect, texture, depth, color, angle);
 }
 
+void SpriteBatch::dispose()
+{
+    if (_vao != 0) {
+        glDeleteVertexArrays(1, &_vao);
+        _vao = 0;
+    }
+
+    if (_vbo != 0) {
+        glDeleteBuffers(1, &_vbo);
+        _vbo = 0;
+    }
+}
 
 void SpriteBatch::renderBatch()
 {
 	glBindVertexArray(_vao);
 
-	for (auto i = 0; i < _renderBatches.size(); i++) {
+	for (size_t i = 0; i < _renderBatches.size(); i++) {
 		glBindTexture(GL_TEXTURE_2D, _renderBatches[i].texture);
 
 		glDrawArrays(GL_TRIANGLES, _renderBatches[i].offset, _renderBatches[i].numVertices);
@@ -156,7 +168,7 @@ void SpriteBatch::createRenderBatches()
 	int cv = 0; // Current vertex
 	_renderBatches.emplace_back(0, 6, _glyphPointers[0]->texture);
 
-	for (int cg = 0; cg < _glyphPointers.size(); cg++) {
+	for (size_t cg = 0; cg < _glyphPointers.size(); cg++) {
 		if (cg > 0) {
 			if (_glyphPointers[cg]->texture != _glyphPointers[cg - 1]->texture) {
 				_renderBatches.emplace_back(offset, 6, _glyphPointers[cg]->texture);
