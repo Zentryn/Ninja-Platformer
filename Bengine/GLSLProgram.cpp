@@ -154,6 +154,7 @@ void GLSLProgram::unuse()
 void GLSLProgram::dispose()
 {
     if (_programID) glDeleteProgram(_programID);
+    _numAttributes = 0;
 }
 
 }
