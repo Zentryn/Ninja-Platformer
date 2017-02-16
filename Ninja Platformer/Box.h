@@ -33,7 +33,8 @@ public:
 
     b2Body*                    getBody()          const { return m_body; }
     b2Fixture*                 getFixture()       const { return m_fixture; }
-    glm::vec2                  getUvRect()        const { return m_uvRect; }
+    const Bengine::GLTexture&  getTexture()       const { return m_texture; }
+    glm::vec4                  getUvRect()        const { return m_uvRect; }
     glm::vec2                  getPosition()      const { return glm::vec2(m_body->GetPosition().x, m_body->GetPosition().y); }
     const glm::vec2&           getDimensions()    const { return m_dimensions; }
     float                      getAngle()         const { return m_body->GetAngle(); }
