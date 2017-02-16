@@ -46,7 +46,8 @@ namespace Bengine {
 		// Unbind our texture
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		// Set the width and height of the GLTexture
+		// Set the properties of the GLTexture
+        texture.filePath = filePath;
 		texture.width = width;
 		texture.height = height;
 
