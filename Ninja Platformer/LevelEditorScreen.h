@@ -15,6 +15,7 @@
 #include "Light.h"
 #include "Player.h"
 #include "ScreenIndices.h"
+#include "LevelReaderWriter.h"
 #include <vector>
 
 enum class PhysicsMode {
@@ -78,6 +79,8 @@ private:
 
     void drawWorld();
     void drawUI();
+    void clearLevel(); ///< Resets everything to original values or destroys them
+    void resetColorPickerValues();
 
     void setObjectWidgetVisibility(bool visibility);
     void setSelectionModeWidgetVisibility(bool visibility);
@@ -111,10 +114,17 @@ private:
     void onFinishMouseClick();
     void onSelectMouseClick();
     void onPlaceMouseClick();
+    void onSaveMouseClick();
+    void onLoadMouseClick();
+    void onBackMouseClick();
     void onRotationValueChange();
     void onWidthValueChange();
     void onHeightValueChange();
     void onDebugToggleClick();
+    void onSaveCancelClick();
+    void onLoadCancelClick();
+    void onSave();
+    void onLoad();
 
     void onExitClicked();
 
@@ -153,8 +163,20 @@ private:
     CEGUI::Spinner* m_heightSpinner = nullptr;
     CEGUI::Spinner* m_sizeSpinner = nullptr;
 
-    /* Big buttons */
+    /* Push buttons */
     CEGUI::PushButton* m_backButton = nullptr;
+    CEGUI::PushButton* m_loadButton = nullptr;
+    CEGUI::PushButton* m_saveButton = nullptr;
+    CEGUI::PushButton* m_saveWindowSaveButton = nullptr;
+    CEGUI::PushButton* m_loadWindowLoadButton = nullptr;
+
+    /* Frame windows */
+    CEGUI::FrameWindow* m_saveWindow = nullptr;
+    CEGUI::FrameWindow* m_loadWindow = nullptr;
+
+    /* Combo boxes */
+    CEGUI::Combobox* m_saveWindowCombobox = nullptr;
+    CEGUI::Combobox* m_loadWindowCombobox = nullptr;
 
     float m_rotation = 0.0f;
     float m_width = 0.0f;
@@ -170,6 +192,9 @@ private:
     bool m_hasDragged = false;
     int m_selectedBox = NO_BOX;
     int m_selectedLight = NO_LIGHT;
+
+    std::vector<CEGUI::ListboxItem*> m_saveBoxListItems;
+    std::vector<CEGUI::ListboxItem*> m_loadBoxListItems;
     
     std::unique_ptr<b2World> m_world;
     std::vector<Light> m_lights;
