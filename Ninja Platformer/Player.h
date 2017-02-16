@@ -28,10 +28,14 @@ public:
     void drawDebug(Bengine::DebugRenderer& debugRenderer);
 
     const Capsule& getCapsule() const { return m_capsule; }
+    const glm::vec2& getDrawDims() const { return m_drawDims; }
+    const glm::vec2& getCollisionDims() const { return m_collisionDims; }
+    const Bengine::ColorRGBA8 getColor() const { return m_color; }
     glm::vec2 getPosition() const { return glm::vec2(m_capsule.getBody()->GetPosition().x, m_capsule.getBody()->GetPosition().y); }
 
 private:
     glm::vec2 m_drawDims;
+    glm::vec2 m_collisionDims;
     Bengine::TileSheet m_texture;
     Bengine::ColorRGBA8 m_color;
     Capsule m_capsule;
