@@ -1,6 +1,7 @@
 #include "GameplayScreen.h"
 #include "SDL/SDL.h"
 #include "Light.h"
+#include "FlashLight.h"
 #include <Bengine/IMainGame.h>
 #include <Bengine/ResourceManager.h>
 #include <Bengine/Vertex.h>
@@ -79,7 +80,7 @@ void GameplayScreen::onEntry()
         randColor.r = colr(randGenerator);
         randColor.g = colr(randGenerator);
         randColor.b = colr(randGenerator);
-        randColor.a = 255;
+        randColor.a = 50;
         Box newBox;
 
         newBox.init(m_world.get(), glm::vec2(xPos(randGenerator), yPos(randGenerator)), glm::vec2(size(randGenerator), size(randGenerator)), m_texture, randColor, true);
@@ -104,12 +105,19 @@ void GameplayScreen::onEntry()
     m_lightProgram.addAttribute("vertexUV");
     m_lightProgram.linkShaders();
 
+	// Compile flashlight shader
+	m_flashLightProgram.compileShaders("Shaders/flashLightShading.vert", "Shaders/flashLightShading.frag");
+	m_flashLightProgram.addAttribute("vertexPosition");
+	m_flashLightProgram.addAttribute("vertexColor");
+	m_flashLightProgram.addAttribute("vertexUV");
+	m_flashLightProgram.linkShaders();
+
     // Init camera
     m_camera.init(m_window->getScreenWidth(), m_window->getScreenHeight());
     m_camera.setScale(32.0f); ///< Scale out because the world is in meters
 
     // Init player
-    m_player.init(m_world.get(), glm::vec2(0.0f, 30.0f), glm::vec2(2.0f), glm::vec2(1.0f, 1.8f), Bengine::ColorRGBA8(255, 255, 255, 255));
+    m_player.init(m_world.get(), glm::vec2(0.0f, 30.0f), glm::vec2(2.0f), glm::vec2(1.0f, 1.8f), Bengine::ColorRGBA8(255, 255, 255, 50));
 
     // Init UI
     //initUI();
@@ -132,6 +140,8 @@ void GameplayScreen::update()
 
 void GameplayScreen::draw()
 {
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); LINES :D
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     
@@ -148,6 +158,41 @@ void GameplayScreen::draw()
     GLint pUniform = m_textureProgram.getUniformLocation("P");
     glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
 
+	// If flashlight is on
+	if (m_lights) {
+		// Send the position of the light
+		GLint lightPosUniform = m_textureProgram.getUniformLocation("flashLightPosition");
+		glUniform2f(lightPosUniform, glm::vec2(960, 1080).x, glm::vec2(960, 1080).y);
+
+		// Get mouse coordinates
+		glm::vec2 mouseCoords = m_game->inputManager.getMouseCoords();
+		mouseCoords.y = m_window->getScreenHeight() - mouseCoords.y;
+
+		// Set flashlight direction
+		glm::vec2 direction = glm::normalize(
+			glm::vec2(
+				m_player.getPosition().x + m_window->getScreenWidth() / 32.0f / 2.0f,
+				m_player.getPosition().y + m_window->getScreenHeight() / 32.0f / 2.0f
+			)
+			- glm::vec2(960, 1080) / 32.0f
+		);
+
+		// Send the direction of the light
+		GLint directionUniform = m_textureProgram.getUniformLocation("flashLightDirection");
+		glUniform2f(directionUniform, direction.x, direction.y);
+
+		// Send the color of the light
+		GLint colorUniform = m_textureProgram.getUniformLocation("flashLightColor");
+		glUniform4f(colorUniform, m_flashLightColor.r, m_flashLightColor.g, m_flashLightColor.b, m_flashLightColor.a);
+
+		// Additive blending
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	}
+
+	// Tell the shader if the light is on
+	GLint colorOnUniform = m_textureProgram.getUniformLocation("flashLightOn");
+	glUniform1i(colorOnUniform, m_lights);
+		
     // Draw all the boxes
     for (auto& box : m_boxes) {
         box.draw(m_spriteBatch);
@@ -184,10 +229,13 @@ void GameplayScreen::draw()
         
         m_debugRenderer.end();
         m_debugRenderer.render(projectionMatrix, 2.0f);
+
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     // Render some lights
     // TODO: DONT HARDCODE THIS!!
+	/*
     if (m_lights) {
         Light playerLight;
         playerLight.color = Bengine::ColorRGBA8(50, 50, 255, 128);
@@ -217,6 +265,55 @@ void GameplayScreen::draw()
         // Reset to regural blending
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
+	*/
+
+	// Render Flashlight
+	if (m_lights) {
+		FlashLight flashLight;
+		flashLight.color = m_flashLightColor;
+		flashLight.position = glm::vec2(960, 1080);
+		flashLight.size = (float)m_window->getScreenWidth();
+
+		// Get mouse coordinates
+		glm::vec2 mouseCoords = m_game->inputManager.getMouseCoords();
+		mouseCoords.y = m_window->getScreenHeight() - mouseCoords.y;
+
+		// Set flashlight direction
+		flashLight.direction = glm::normalize(
+			glm::vec2 (
+				m_player.getPosition().x + m_window->getScreenWidth() / 32.0f / 2.0f,
+				m_player.getPosition().y + m_window->getScreenHeight() / 32.0f / 2.0f
+			)
+			- flashLight.position / 32.0f
+		);
+
+		m_flashLightProgram.use();
+
+		// Send the camera matrix
+		pUniform = m_flashLightProgram.getUniformLocation("P");
+		glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+		// Send the position of the light
+		GLint lightPosUniform = m_flashLightProgram.getUniformLocation("lightPosition");
+		glUniform2f(lightPosUniform, flashLight.position.x, flashLight.position.y);
+
+		// Send the direction of the light
+		GLint directionUniform = m_flashLightProgram.getUniformLocation("dir");
+		glUniform2f(directionUniform, flashLight.direction.x, flashLight.direction.y);
+
+		// Additive blending
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+		m_spriteBatch.begin();
+		flashLight.draw(m_spriteBatch, m_window->getScreenWidth(), m_window->getScreenHeight());
+		m_spriteBatch.end();
+		m_spriteBatch.renderBatch();
+
+		m_flashLightProgram.unuse();
+
+		// Reset to regural blending
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
 
     // m_gui.draw();
 
@@ -231,6 +328,7 @@ void GameplayScreen::releaseKeys()
     m_game->inputManager.releaseKey(SDLK_a);
     m_game->inputManager.releaseKey(SDLK_w);
     m_game->inputManager.releaseKey(SDLK_d);
+	m_game->inputManager.releaseKey(SDLK_s);
     m_game->inputManager.releaseKey(SDLK_LSHIFT);
     m_game->inputManager.releaseKey(SDLK_LCTRL);
     m_game->inputManager.releaseKey(SDLK_SPACE);
@@ -270,6 +368,14 @@ void GameplayScreen::checkInput()
         case SDL_QUIT:
             onExitClicked();
             break;
+
+		case SDL_MOUSEWHEEL:
+			if (evnt.wheel.y > 0) {
+				m_camera.setScale(m_camera.getScale() + 1.0f);
+			}
+			else if (evnt.wheel.y < 0) {
+				m_camera.setScale(m_camera.getScale() - 1.0f);
+			}
         }
     }
 

@@ -1,4 +1,4 @@
-#include "Window.h"
+#include "Window.h" 
 #include "BengineErrors.h"
 
 namespace Bengine {
@@ -17,7 +17,7 @@ int Window::create(std::string windowName, int screenWidth, int screenHeight, un
 {
 	_screenWidth = screenWidth;
 	_screenHeight = screenHeight;
-
+    
 	Uint32 flags = SDL_WINDOW_OPENGL;
 
 	// Set the flags

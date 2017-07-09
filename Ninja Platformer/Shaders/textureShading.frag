@@ -10,14 +10,27 @@ in vec2 fragmentUV;
 out vec4 color;
 
 uniform sampler2D mySampler;
+uniform bool flashLightOn;
+uniform vec2 flashLightPosition;
+uniform vec2 flashLightDirection;
+uniform vec4 flashLightColor;
 
 void main() {
-
-    //cos(x) returns a number between -1 and 1. To convert it into the range 0 to 1
-    //you simply do (cos(x) + 1.0) * 0.5
+	vec2 lightDir = normalize(flashLightPosition - (gl_FragCoord.xy));
+	float distance = length(fragmentUV);
+	float diff = dot(lightDir, flashLightDirection);
     
     vec4 textureColor = texture(mySampler, fragmentUV);
-    
-    //Make crazy colors using time and position!
-    color = fragmentColor * textureColor;
+
+	if (diff < -0.99 && flashLightOn) {
+		float alpha = 1.0;
+		if (fragmentColor.a > 0.0) {
+			alpha = fragmentColor.a;
+		}
+
+		color = vec4(fragmentColor.rgb, alpha * flashLightColor.a) * textureColor;
+	}
+	else {
+		color = fragmentColor * textureColor;
+	}
 }

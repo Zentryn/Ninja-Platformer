@@ -49,11 +49,13 @@ private:
     std::unique_ptr<Bengine::SpriteFont> m_spriteFont;
     Bengine::GLSLProgram m_textureProgram;
     Bengine::GLSLProgram m_lightProgram;
+	Bengine::GLSLProgram m_flashLightProgram;
     Bengine::Camera2D m_camera;
     Bengine::GLTexture m_texture;
     Bengine::Window* m_window;
     Bengine::DebugRenderer m_debugRenderer;
     Bengine::GUI m_gui;
+	Bengine::ColorRGBA8 m_flashLightColor = Bengine::ColorRGBA8(255, 0, 255, 200);
 
     bool m_renderDebug = false;
     bool m_lights = false;

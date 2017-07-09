@@ -74,5 +74,8 @@
     <ClInclude Include="LevelReaderWriter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FlashLight.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
